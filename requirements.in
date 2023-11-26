@@ -2,3 +2,5 @@ pytorch-lightning
 torch
 torchvision
 lightning
+lightning-bolts
+scipy

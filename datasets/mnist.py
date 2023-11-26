@@ -18,7 +18,7 @@ _DEFAULT_RESIZE_SIZE = 32
 
 
 class MNISTDataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str, batch_size: int = _DEFAULT_MNIST_BATCH_SIZE):
+    def __init__(self, data_dir: Path, batch_size: int = _DEFAULT_MNIST_BATCH_SIZE):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size

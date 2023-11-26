@@ -8,22 +8,25 @@ PyTorch reference: https://pytorch.org/tutorials/beginner/blitz/neural_networks_
 """
 from __future__ import annotations
 
-import lightning.pytorch as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchmetrics
+
+from models.detection.base import BaseModel
 
 
-class LeNet(pl.LightningModule):
-    def __init__(self, in_channels: int, out_channels: int):
+class LeNet(BaseModel):
+    def __init__(self, in_channels: int, out_channels: int, lr: float = 2e-4):
         """
         Args:
-        - in_channels: One for grayscale input image, 3 for RGB input image.
+        - in_channels: One for grayscale input image (which is the case for MNIST), 3 for RGB input image.
         - out_channels: Number of classes of the classifier. 10 for MNIST.
         """
-        super().__init__()
-        self.accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=out_channels)
+        super().__init__(learning_rate=lr, num_classes=out_channels)
+        # Debugging tool to display intermediate input/output size of all your layer (called before fit)
+        self.example_input_array = torch.Tensor(16, in_channels, 32, 32)
+        self.learning_rate = lr
+
         # [img_size] 32 -> conv -> 32 -> (max_pool) -> 16
         # with 6 output activation maps
         self.conv_layer1 = nn.Sequential(
@@ -57,62 +60,3 @@ class LeNet(pl.LightningModule):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
-
-    ###############################
-    # --- For Pytorch Lightning ---
-    ###############################
-    def configure_optimizers(self) -> torch.optim.Adam:
-        return torch.optim.Adam(self.parameters(), lr=0.02)
-
-    def validation_step(
-        self,
-        batch: list[torch.Tensor, torch.Tensor],
-        batch_idx: int,
-    ) -> torch.Tensor:
-        """Function called when using `trainer.validate()` with trainer a
-        lightning `Trainer` instance."""
-        x, y = batch
-        preds = self(x)
-        loss = F.cross_entropy(preds, y)
-        self.log("loss", loss)
-        self.accuracy(preds, y)
-        self.log("acc_step", self.accuracy, on_epoch=True)
-        return loss
-
-    def training_step(
-        self,
-        batch: list[torch.Tensor, torch.Tensor],
-        batch_idx: int,
-    ) -> torch.Tensor:
-        """Function called when using `trainer.fit()` with trainer a
-        lightning `Trainer` instance."""
-        x, y = batch
-        preds = self(x)
-        loss = F.cross_entropy(preds, y)
-        self.accuracy(preds, y)
-        self.log("train_acc_step", self.accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        # logs metrics for each training_step,
-        # and the average across the epoch, to the progress bar and logger
-        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        return loss
-
-    def test_step(
-        self,
-        batch: list[torch.Tensor, torch.Tensor],
-        batch_idx: int,
-    ):
-        """Function called when using `trainer.test()` with trainer a
-        lightning `Trainer` instance."""
-        test_loss = self.validation_step(batch, batch_idx)
-        self.log_dict({"test_loss": test_loss})
-
-    def predict_step(
-        self,
-        batch: list[torch.Tensor, torch.Tensor],
-        batch_idx: int,
-        dataloader_idx: int = 0,
-    ) -> torch.Tensor:
-        """Function called when using `trainer.predict()` with trainer a
-        lightning `Trainer` instance."""
-        x, _ = batch
-        return self(x)
